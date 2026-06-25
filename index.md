@@ -123,6 +123,13 @@ app retries, the upstream service's deadline fires and it reissues. That single
 behaviour is the difference between a queue that absorbs a spike and a queue that
 amplifies it into a collapse.
 
+And notice what's *not* in that loop: any delay between attempts. The client has a
+`maxAttempts` cap but retries the instant its deadline fires — no backoff, no
+jitter. That's deliberate, and it's the engine of everything that follows. Backoff
+would space the retries out and starve the feedback loop, which is exactly why
+it's on the fixes list at the end; leaving it out models the *naive* client
+faithfully, and naive clients are precisely what make real retry storms vicious.
+
 ## Normal load: nothing to see
 
 Baseline is 60 ops/second against 80 of capacity — 75% utilisation, a load you'd
