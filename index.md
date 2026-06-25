@@ -332,6 +332,29 @@ a deadline: **the backend's effective deadline must be meaningfully shorter than
 the client's.** If a job can't finish with margin to spare, refuse it now rather
 than discover the waste after you've paid for it.
 
+## Why 70 ms?
+
+Because it clears the 50 ms work time with a little room for scheduling jitter —
+and that's the *only* thing the margin has to do. It is not hand-tuned, and the
+exact value barely matters. Here's goodput as a function of the margin, every
+other parameter held fixed:
+
+![Goodput as a function of the drop margin: flat-low below the work time, 100% plateau above it](chart_margin_sweep.svg)
+
+Below the work time, goodput is stuck down where naive dropping left it — the
+backend keeps starting jobs it can't finish. The instant the margin clears 50 ms,
+goodput snaps to 100% and *stays* there: 55, 70, 100, and 250 ms all land on the
+same plateau, and the volume of work shed barely moves across it. 70 is just a
+comfortable point in the middle.
+
+So you don't tune this number, you derive it. The margin is a processing budget,
+so set it from the work itself: an estimate of the service time plus a high
+percentile of its variance — p99 service time is a sensible default — so the
+backend only ever starts work it can almost certainly finish before the client's
+deadline. The single way to get it wrong is to set it *below* what the work
+actually costs; anywhere in the broad plateau above that behaves the same.
+(`go run ./sweep` regenerates this curve.)
+
 ## Two failure modes, one picture
 
 Step back and the four runs form a clean 2×2. There are two independent things
