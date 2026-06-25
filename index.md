@@ -37,8 +37,27 @@ none of it matters.
 
 This post is about how a perfectly adequate service folds under a load spike
 without its throughput ever dropping, why it doesn't recover on its own, and
-three increasingly correct ways to fix it. There's a working simulation behind
-every graph; the [repro](#reproduce-it) is at the end.
+three increasingly correct ways to fix it.
+
+**First, the honest disclaimer: every graph here comes out of a simulation.** Not
+an abstract discrete-event model — it's a small Go program with real goroutines, a
+real `time.Sleep` for the heavy work, and real client timeouts — but a model all
+the same, and I chose its dynamics. The defaults: a backend of 4 workers at 50 ms
+each (**80 ops/s** of hard capacity), a baseline of 60 ops/s (a comfortable 75%
+utilisation), and a ten-second spike to five times capacity. Clients wait one
+second, then give up and retry. That last choice is the one to poke at — *you
+built a client that retries on timeout and then act surprised when the queue
+collapses* — so let me defend it up front: real clients **do** retry (users mash
+refresh, mobile apps reissue, upstream deadlines fire and re-request), and I
+deliberately left out the things that would *soften* the collapse — backoff,
+jitter, retry budgets — because those are better fixes and I want to come back to
+them at the end. This is the pessimistic case on purpose. The headline numbers
+(19%→100% goodput, a 100× smaller backlog) are artifacts of these particular
+parameters and will move if you change them. What does **not** move is the
+*relative* behaviour of the four queue disciplines under identical conditions —
+that ordering is the whole point; the percentages are just how loud it gets at
+these settings. Every parameter is a flag, so you can [reproduce](#reproduce-it)
+this and turn the knobs yourself.
 
 ## Throughput is not goodput
 
