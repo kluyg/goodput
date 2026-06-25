@@ -1,7 +1,7 @@
 # goodput
 
-A small simulation behind the blog post **"Goodput: the metric your throughput
-graph is hiding"** ([POST.md](POST.md)).
+A small simulation behind the blog post **"Shed your load: how a healthy service
+folds under a spike"** ([index.md](index.md)).
 
 It models the classic asynchronous pipeline —
 
