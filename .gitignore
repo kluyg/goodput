@@ -1,0 +1,12 @@
+# Compiled binaries
+*.exe
+*.exe~
+/goodput
+/plot/plot
+
+# Local tooling / session state
+.claude/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
