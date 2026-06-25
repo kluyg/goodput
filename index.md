@@ -93,8 +93,13 @@ goroutines and a shared queue, but nothing about the dynamics depends on that �
 the queue is the queue whether it's a channel or Kafka.
 
 The backend's capacity is fixed and knowable: four workers, 50 ms per unit, so
-**80 units/second**, full stop. That number never changes in anything that
-follows. Every collapse you're about to see happens at constant throughput.
+**80 units/second**, full stop. I hold that 50 ms constant on purpose — a real
+backend would get *slower* under this kind of load, not faster (cache pressure,
+GC, context-switching, lock contention — the subject of my [last
+post](/posts/shard-your-locks/)), but pinning service time keeps the variable of
+interest isolated to the queue, and a degrading backend would only deepen the
+collapse, not soften it. So that number never changes in anything that follows.
+Every collapse you're about to see happens at constant throughput.
 
 The one piece people skip — and it's the piece that matters — is what a client
 does when it runs out of patience:
