@@ -67,6 +67,30 @@ plus two comparison charts:
 - `chart_goodput_compare.svg` — goodput of all four disciplines on one axis
 - `chart_queue_compare.svg` — queue depth of all four on one axis
 
+## Margin sensitivity sweep
+
+`-drop-margin-ms=70` for a 50 ms work time is not magic — it just needs to clear
+the work time with a little headroom for scheduling jitter. To see how little the
+exact value matters, sweep it:
+
+```sh
+go run ./sweep                    # default margins: 0 30 50 55 60 70 100 150 250
+go run ./sweep 0 40 50 60 80 120  # or your own (ms)
+go run ./plot                     # renders chart_margin_sweep.svg from the result
+```
+
+`sweep` runs the `deadline` discipline once per margin (real-time runs, so it
+takes a few minutes) and writes `margin_sweep.csv`:
+
+```
+margin_ms,goodput,throughput,goodput_pct,dropped,gaveup
+```
+
+`plot` then renders `chart_margin_sweep.svg` — goodput as a percentage of
+throughput against the margin, with the work time marked. The takeaway: goodput is
+near zero until the margin clears the work time, then plateaus near 100% across a
+wide range above it. The headline `70` is just a comfortable point on that plateau.
+
 ## Flags
 
 | flag | default | meaning |

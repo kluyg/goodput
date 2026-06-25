@@ -203,6 +203,85 @@ func main() {
 	compare("Queue depth by queue discipline", loaded, "chart_queue_compare.svg",
 		func(r row) float64 { return r.queue })
 	fmt.Println("wrote chart_goodput_compare.svg, chart_queue_compare.svg")
+
+	// Optional: margin-sensitivity sweep, if `go run ./sweep` has been run.
+	if marginChart("margin_sweep.csv", "chart_margin_sweep.svg", 50) {
+		fmt.Println("wrote chart_margin_sweep.svg")
+	}
+}
+
+// marginChart renders goodput-as-%-of-throughput against the drop margin from
+// margin_sweep.csv, with a marker at the backend's work time. Returns false (and
+// does nothing) if the sweep hasn't been run yet. Columns:
+// margin_ms,goodput,throughput,goodput_pct,dropped,gaveup
+func marginChart(in, out string, workMs float64) bool {
+	f, err := os.Open(in)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	recs, err := csv.NewReader(f).ReadAll()
+	if err != nil || len(recs) < 2 {
+		return false
+	}
+	type pt struct{ margin, pct float64 }
+	var pts []pt
+	var maxX float64
+	for i, rec := range recs {
+		if i == 0 || len(rec) < 4 {
+			continue
+		}
+		n := func(s string) float64 { v, _ := strconv.ParseFloat(s, 64); return v }
+		p := pt{n(rec[0]), n(rec[3])}
+		pts = append(pts, p)
+		if p.margin > maxX {
+			maxX = p.margin
+		}
+	}
+	if len(pts) == 0 {
+		return false
+	}
+	if maxX == 0 {
+		maxX = 1
+	}
+	const maxY = 100
+	X := func(v float64) float64 { return padL + (v/maxX)*(w-padL-padR) }
+	Y := func(v float64) float64 { return h - padB - (v/maxY)*(h-padT-padB) }
+
+	var b strings.Builder
+	fmt.Fprintf(&b, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" font-family="ui-sans-serif,system-ui,sans-serif">`, w, h)
+	fmt.Fprintf(&b, `<rect width="%d" height="%d" fill="white"/>`, w, h)
+	fmt.Fprintf(&b, `<text x="%d" y="18" font-size="14" font-weight="600" fill="#111">Goodput vs drop margin (work time = %.0f ms)</text>`, padL, workMs)
+	for i := 0; i <= 5; i++ {
+		v := float64(maxY) * float64(i) / 5
+		y := Y(v)
+		fmt.Fprintf(&b, `<line x1="%d" y1="%.1f" x2="%d" y2="%.1f" stroke="#eee"/>`, padL, y, w-padR, y)
+		fmt.Fprintf(&b, `<text x="%d" y="%.1f" font-size="10" fill="#888" text-anchor="end">%.0f%%</text>`, padL-6, y+3, v)
+	}
+	for v := 0.0; v <= maxX; v += 50 {
+		fmt.Fprintf(&b, `<text x="%.1f" y="%d" font-size="10" fill="#888" text-anchor="middle">%.0f</text>`, X(v), h-padB+16, v)
+	}
+	fmt.Fprintf(&b, `<text x="%.1f" y="%d" font-size="10" fill="#888" text-anchor="middle">drop margin (ms)</text>`, float64(w)/2, h-4)
+
+	// Marker at the work time: below this, work can't finish in time.
+	mx := X(workMs)
+	fmt.Fprintf(&b, `<line x1="%.1f" y1="%d" x2="%.1f" y2="%d" stroke="#d62728" stroke-width="1" stroke-dasharray="4 3"/>`, mx, padT, mx, h-padB)
+	fmt.Fprintf(&b, `<text x="%.1f" y="%d" font-size="10" fill="#d62728">work time</text>`, mx+4, padT+12)
+
+	var line strings.Builder
+	for _, p := range pts {
+		fmt.Fprintf(&line, "%.1f,%.1f ", X(p.margin), Y(p.pct))
+	}
+	fmt.Fprintf(&b, `<polyline fill="none" stroke="#2ca02c" stroke-width="2" points="%s"/>`, strings.TrimSpace(line.String()))
+	for _, p := range pts {
+		fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="3" fill="#2ca02c"/>`, X(p.margin), Y(p.pct))
+	}
+	b.WriteString(`</svg>`)
+	if err := os.WriteFile(out, []byte(b.String()), 0644); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return false
+	}
+	return true
 }
 
 // compare overlays one metric from every discipline on a single chart.
